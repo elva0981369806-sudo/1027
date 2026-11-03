@@ -1,0 +1,801 @@
+/* F1 Racing Simulator - Modern Broadcast UI & Interactive Cockpit Controls */
+:root {
+    --f1-red: #e10600;
+    --f1-dark: #15151e;
+    --f1-card-bg: rgba(21, 21, 30, 0.88);
+    --f1-cyan: #00f0ff;
+    --f1-green: #00d2be;
+    --f1-yellow: #ffe600;
+    --f1-purple: #b138dd;
+    --hud-border: rgba(255, 255, 255, 0.12);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #0d0e12;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    color: #ffffff;
+}
+
+#canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* Screen Motion Blur / Speed Lines */
+#speed-vignette {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.6);
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+/* Rewind Overlay */
+#rewind-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 20;
+    background: radial-gradient(circle, rgba(0, 180, 255, 0.15) 0%, rgba(0, 50, 150, 0.45) 100%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: invert(0.2) contrast(1.2);
+}
+
+#rewind-overlay.active {
+    display: flex;
+}
+
+.rewind-indicator {
+    font-size: 32px;
+    font-weight: 800;
+    color: #00f0ff;
+    text-shadow: 0 0 20px #00f0ff;
+    letter-spacing: 4px;
+    animation: rewindPulse 0.4s infinite alternate;
+}
+
+@keyframes rewindPulse {
+    from { transform: scale(1); opacity: 0.8; }
+    to { transform: scale(1.08); opacity: 1; }
+}
+
+/* ================= HUD OVERLAY ================= */
+#hud-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Top Bar: Timing & Assists */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 18px 24px;
+    pointer-events: auto;
+}
+
+.timing-tower {
+    background: var(--f1-card-bg);
+    border-radius: 8px;
+    border-left: 4px solid var(--f1-red);
+    padding: 10px 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    min-width: 220px;
+}
+
+.timing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #a0a0b0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--hud-border);
+    padding-bottom: 4px;
+}
+
+.timing-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 5px 0;
+    font-family: monospace;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.timing-pos {
+    background: var(--f1-red);
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-right: 8px;
+}
+
+.best-lap {
+    color: var(--f1-purple);
+}
+
+.current-lap {
+    color: #ffffff;
+}
+
+/* Center Assist Mode Selector */
+.assist-bar {
+    background: var(--f1-card-bg);
+    border-radius: 30px;
+    padding: 6px 12px;
+    display: flex;
+    gap: 8px;
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--hud-border);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.assist-btn {
+    background: transparent;
+    border: none;
+    color: #bbb;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.assist-btn.active {
+    background: #00d2be;
+    color: #0f1016;
+    box-shadow: 0 0 12px rgba(0, 210, 190, 0.5);
+}
+
+.assist-btn:hover:not(.active) {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Top Right: Minimap & Camera Toggle */
+.top-right-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.minimap-container {
+    width: 170px;
+    height: 170px;
+    background: var(--f1-card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--hud-border);
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+#minimap-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.hud-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-pill-btn {
+    background: var(--f1-card-bg);
+    border: 1px solid var(--hud-border);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.action-pill-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.action-pill-btn.rewind-btn {
+    background: rgba(0, 180, 255, 0.25);
+    border-color: #00f0ff;
+    color: #00f0ff;
+}
+.action-pill-btn.rewind-btn:active {
+    background: #00f0ff;
+    color: #000;
+}
+
+/* ================= BOTTOM COCKPIT & CONTROLS ================= */
+.bottom-controls-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 30px 24px 30px;
+    pointer-events: auto;
+    width: 100%;
+}
+
+/* Left: DRS / ERS Controls & Steering Wheel Hint */
+.left-control-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 180px;
+}
+
+.status-badge {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+    letter-spacing: 1.5px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(6px);
+}
+
+.drs-badge {
+    background: rgba(20, 20, 25, 0.7);
+    color: #666;
+}
+.drs-badge.ready {
+    background: rgba(0, 210, 190, 0.2);
+    border-color: #00d2be;
+    color: #00d2be;
+    box-shadow: 0 0 16px rgba(0, 210, 190, 0.35);
+}
+.drs-badge.active {
+    background: #00d2be;
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 210, 190, 0.8);
+}
+
+.ers-panel {
+    background: var(--f1-card-bg);
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--hud-border);
+}
+.ers-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    color: #aaa;
+    margin-bottom: 4px;
+}
+.ers-bar-outer {
+    width: 100%;
+    height: 8px;
+    background: #2a2c35;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.ers-bar-inner {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #ffea00, #ff1801);
+    transition: width 0.1s linear;
+}
+
+/* CENTER: REALISTIC F1 CARBON STEERING WHEEL */
+.wheel-container {
+    position: relative;
+    width: 320px;
+    height: 230px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.steering-wheel-wrapper {
+    position: relative;
+    width: 280px;
+    height: 200px;
+    cursor: grab;
+    transform-origin: 50% 65%;
+    transition: transform 0.05s ease-out;
+    filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.85));
+}
+.steering-wheel-wrapper:active {
+    cursor: grabbing;
+}
+
+/* F1 Wheel Visual Shapes */
+.wheel-svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Shift Lights Array (15 LEDs) */
+.shift-lights-bar {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: #0d0e12;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    z-index: 5;
+}
+
+.led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #252830;
+    transition: background 0.06s ease, box-shadow 0.06s ease;
+}
+
+.led.green.on {
+    background: #00ff66;
+    box-shadow: 0 0 8px #00ff66;
+}
+.led.red.on {
+    background: #ff2222;
+    box-shadow: 0 0 8px #ff2222;
+}
+.led.blue.on {
+    background: #00d0ff;
+    box-shadow: 0 0 10px #00d0ff;
+}
+
+/* Central Digital LCD Screen */
+.wheel-lcd {
+    position: absolute;
+    top: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140px;
+    height: 85px;
+    background: #08090c;
+    border: 2px solid #282a35;
+    border-radius: 8px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: 'Consolas', 'Courier New', monospace;
+    z-index: 5;
+    color: #fff;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+.lcd-top-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+}
+.lcd-gear {
+    font-size: 38px;
+    font-weight: 900;
+    color: var(--f1-yellow);
+    text-align: center;
+    line-height: 1;
+    margin: -2px 0;
+}
+.lcd-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.lcd-speed {
+    font-size: 20px;
+    font-weight: 900;
+    color: #ffffff;
+}
+.lcd-speed-unit {
+    font-size: 9px;
+    color: #888;
+}
+.lcd-drs-status {
+    font-size: 10px;
+    font-weight: 800;
+    color: #666;
+}
+.lcd-drs-status.active {
+    color: #00ff66;
+}
+
+.wheel-hint {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+/* RIGHT: INTERACTIVE DUAL PEDALS (煞車與油門踏板) */
+.pedals-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+}
+
+.pedal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.pedal-wrapper {
+    position: relative;
+    width: 65px;
+    height: 125px;
+    cursor: pointer;
+    perspective: 500px;
+}
+
+.pedal-plate {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #3a3d47 0%, #1e2026 100%);
+    border-radius: 8px;
+    border: 2px solid #555;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
+    transform-origin: bottom center;
+    transform: rotateX(15deg);
+    transition: transform 0.08s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* Pedal Depressed / Active State */
+.pedal-wrapper.active .pedal-plate {
+    transform: rotateX(38deg) translateY(8px);
+}
+
+.pedal-grip-hole {
+    width: 28px;
+    height: 7px;
+    background: #111;
+    border-radius: 4px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* Brake Pedal (Red) */
+.brake-pedal .pedal-plate {
+    border-color: #ff3344;
+}
+.brake-pedal.active .pedal-plate {
+    box-shadow: 0 0 22px rgba(255, 51, 68, 0.7);
+    border-color: #ff1801;
+}
+
+/* Gas / Throttle Pedal (Green) */
+.gas-pedal {
+    height: 145px; /* F1 Throttle pedal is longer */
+}
+.gas-pedal .pedal-plate {
+    border-color: #00ff88;
+}
+.gas-pedal.active .pedal-plate {
+    box-shadow: 0 0 22px rgba(0, 255, 136, 0.7);
+    border-color: #00ff88;
+}
+
+.pedal-label {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+.brake-pedal + .pedal-label {
+    color: #ff3344;
+}
+.gas-pedal + .pedal-label {
+    color: #00ff88;
+}
+
+.pedal-meter-outer {
+    width: 55px;
+    height: 5px;
+    background: #252830;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.pedal-meter-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.06s linear;
+}
+.brake-meter .pedal-meter-fill {
+    background: #ff3344;
+}
+.gas-meter .pedal-meter-fill {
+    background: #00ff88;
+}
+
+.pedal-key-hint {
+    font-size: 11px;
+    color: #777;
+    font-family: monospace;
+}
+
+/* ================= WELCOME / HELP MODAL ================= */
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 11, 16, 0.88);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-card {
+    background: #171822;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    width: 580px;
+    max-width: 92%;
+    padding: 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    color: #eee;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.modal-f1-badge {
+    background: var(--f1-red);
+    color: #fff;
+    font-weight: 900;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+}
+
+.modal-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.modal-body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #ccc;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.feature-pill-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 8px 0;
+}
+
+.feature-pill {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    border-left: 3px solid #00d2be;
+}
+
+.feature-pill strong {
+    color: #fff;
+}
+
+.start-btn {
+    width: 100%;
+    margin-top: 16px;
+    background: var(--f1-red);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 800;
+    padding: 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 8px 25px rgba(225, 6, 0, 0.45);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.start-btn:hover {
+    background: #ff2222;
+    transform: translateY(-2px);
+}
+
+/* ================= F1 5-RED-LIGHTS START OVERLAY ================= */
+.start-lights-overlay {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+    animation: fadeInDown 0.3s ease-out;
+}
+
+.start-lights-overlay.active {
+    display: flex;
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translate(-50%, -20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.f1-gantry-box {
+    display: flex;
+    gap: 16px;
+    background: #0c0d12;
+    border: 3px solid #282a35;
+    border-radius: 14px;
+    padding: 16px 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.f1-light-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #14161f;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #252836;
+}
+
+.f1-lamp {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2a0b0b;
+    border: 2px solid #3a1515;
+    transition: background 0.08s ease, box-shadow 0.08s ease;
+}
+
+/* Active Red Lamp */
+.f1-lamp.red-on {
+    background: #ff1801;
+    border-color: #ff5544;
+    box-shadow: 0 0 18px #ff1801, 0 0 35px rgba(255, 24, 1, 0.6);
+}
+
+.start-status-banner {
+    font-size: 26px;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 2px;
+    text-shadow: 0 0 16px rgba(255, 255, 255, 0.6);
+    background: rgba(15, 16, 22, 0.85);
+    padding: 8px 24px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+    transition: color 0.15s ease, text-shadow 0.15s ease;
+}
+
+.start-status-banner.go {
+    color: #00ff66;
+    text-shadow: 0 0 24px #00ff66;
+    border-color: #00ff66;
+}
+
+/* ================= PAUSE MENU BUTTONS ================= */
+.menu-action-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+}
+
+.menu-action-btn.primary {
+    background: #00d2be;
+    color: #0c0e14;
+    box-shadow: 0 4px 18px rgba(0, 210, 190, 0.4);
+}
+.menu-action-btn.primary:hover {
+    background: #00f0ff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(0, 240, 255, 0.6);
+}
+
+.menu-action-btn.secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.menu-action-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.16);
+    transform: translateY(-2px);
+}
+
+.menu-action-btn.tertiary {
+    background: transparent;
+    color: #ff5555;
+    border: 1px solid rgba(255, 85, 85, 0.35);
+}
+.menu-action-btn.tertiary:hover {
+    background: rgba(255, 85, 85, 0.15);
+    border-color: #ff5555;
+}
+
+.action-pill-btn.pause-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+.action-pill-btn.pause-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+

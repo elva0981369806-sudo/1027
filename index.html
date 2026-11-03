@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 賽車模擬器 - 終極新手友善版 (F1 Rookie Simcade)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Speed Lines Vignette -->
+    <div id="speed-vignette"></div>
+
+    <!-- F1 5-Red-Lights Starting Countdown Overlay -->
+    <div id="start-lights-overlay" class="start-lights-overlay">
+        <div class="f1-gantry-box">
+            <div class="f1-light-column" id="gantry-col-1">
+                <div class="f1-lamp" id="lamp-1-top"></div>
+                <div class="f1-lamp" id="lamp-1-bot"></div>
+            </div>
+            <div class="f1-light-column" id="gantry-col-2">
+                <div class="f1-lamp" id="lamp-2-top"></div>
+                <div class="f1-lamp" id="lamp-2-bot"></div>
+            </div>
+            <div class="f1-light-column" id="gantry-col-3">
+                <div class="f1-lamp" id="lamp-3-top"></div>
+                <div class="f1-lamp" id="lamp-3-bot"></div>
+            </div>
+            <div class="f1-light-column" id="gantry-col-4">
+                <div class="f1-lamp" id="lamp-4-top"></div>
+                <div class="f1-lamp" id="lamp-4-bot"></div>
+            </div>
+            <div class="f1-light-column" id="gantry-col-5">
+                <div class="f1-lamp" id="lamp-5-top"></div>
+                <div class="f1-lamp" id="lamp-5-bot"></div>
+            </div>
+        </div>
+        <div class="start-status-banner" id="start-status-text">起跑準備中...</div>
+    </div>
+
+    <!-- Rewind Flashback FX Overlay -->
+    <div id="rewind-overlay">
+        <div class="rewind-indicator">⏪ 倒轉時光中 (REWINDING) ⏪</div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-container">
+        <!-- Top Bar: F1 Timing Tower, Assist Presets & Minimap -->
+        <div class="top-bar">
+            <!-- Timing Tower -->
+            <div class="timing-tower">
+                <div class="timing-header">
+                    <span>GP TELEMETRY</span>
+                    <span id="lap-counter">LAP 1 / 5</span>
+                </div>
+                <div class="timing-row">
+                    <span><span class="timing-pos">P1</span><span id="leader-name">VER</span></span>
+                    <span id="leader-time">1:21.840</span>
+                </div>
+                <div class="timing-row current-lap">
+                    <span><span class="timing-pos" style="background:#00d2be;color:#000;">YOU</span>當前單圈</span>
+                    <span id="current-lap-time">0:00.000</span>
+                </div>
+                <div class="timing-row best-lap">
+                    <span>最佳單圈</span>
+                    <span id="best-lap-time">--:--.---</span>
+                </div>
+            </div>
+
+            <!-- Assist Presets Bar (新手防起肖系統核心) -->
+            <div class="assist-bar">
+                <button class="assist-btn active" id="btn-assist-rookie" title="全輔助：智慧循跡防滑、彎道減速防衝撞、自動平滑回正">
+                    🟢 新手模式 (推薦)
+                </button>
+                <button class="assist-btn" id="btn-assist-sport" title="半輔助：保留操控自由度，可微甩尾">
+                    🟡 業餘模式
+                </button>
+                <button class="assist-btn" id="btn-assist-pro" title="無輔助：純粹物理，考驗極限控制">
+                    🔴 專家模式
+                </button>
+            </div>
+
+            <!-- Top Right: Minimap & Quick Actions -->
+            <div class="top-right-group">
+                <div class="minimap-container">
+                    <canvas id="minimap-canvas" width="170" height="170"></canvas>
+                </div>
+                <div class="hud-actions">
+                    <button class="action-pill-btn pause-btn" id="btn-pause" title="暫停遊戲 (快捷鍵 ESC 或 P)">
+                        ⏸️ 暫停 [ESC]
+                    </button>
+                    <button class="action-pill-btn rewind-btn" id="btn-rewind" title="按住倒轉 5 秒 (快捷鍵 R)">
+                        ⚡ 倒轉重來 [R]
+                    </button>
+                    <button class="action-pill-btn" id="btn-camera" title="切換車頂/座艙/追隨視角 (快捷鍵 C)">
+                        📷 視角 [C]
+                    </button>
+                    <button class="action-pill-btn" id="btn-sound" title="音效開關 (快捷鍵 M)">
+                        🔊
+                    </button>
+                    <button class="action-pill-btn" id="btn-help" title="查看操作指南">
+                        ❓
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar: Status Indicators, F1 Carbon Wheel & Dual Pedals -->
+        <div class="bottom-controls-container">
+            <!-- Left: DRS & ERS Hybrid Battery Gauge -->
+            <div class="left-control-panel">
+                <div class="status-badge drs-badge" id="hud-drs-badge">
+                    DRS CLOSED [SPACE]
+                </div>
+                <div class="ers-panel">
+                    <div class="ers-label">
+                        <span>ERS 電能加速 [SHIFT]</span>
+                        <span id="ers-val">100%</span>
+                    </div>
+                    <div class="ers-bar-outer">
+                        <div class="ers-bar-inner" id="ers-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center: Interactive F1 Carbon Steering Wheel -->
+            <div class="wheel-container">
+                <!-- Shift Lights (15 LEDs) -->
+                <div class="shift-lights-bar">
+                    <div class="led green" id="led-1"></div>
+                    <div class="led green" id="led-2"></div>
+                    <div class="led green" id="led-3"></div>
+                    <div class="led green" id="led-4"></div>
+                    <div class="led green" id="led-5"></div>
+                    <div class="led red" id="led-6"></div>
+                    <div class="led red" id="led-7"></div>
+                    <div class="led red" id="led-8"></div>
+                    <div class="led red" id="led-9"></div>
+                    <div class="led red" id="led-10"></div>
+                    <div class="led blue" id="led-11"></div>
+                    <div class="led blue" id="led-12"></div>
+                    <div class="led blue" id="led-13"></div>
+                    <div class="led blue" id="led-14"></div>
+                    <div class="led blue" id="led-15"></div>
+                </div>
+
+                <!-- Digital LCD Telemetry Screen on Wheel -->
+                <div class="wheel-lcd">
+                    <div class="lcd-top-row">
+                        <span id="lcd-delta">+0.00</span>
+                        <span id="lcd-tire-temp">98°C</span>
+                    </div>
+                    <div class="lcd-gear" id="lcd-gear">1</div>
+                    <div class="lcd-bottom-row">
+                        <div>
+                            <span class="lcd-speed" id="lcd-speed">0</span>
+                            <span class="lcd-speed-unit">KM/H</span>
+                        </div>
+                        <span class="lcd-drs-status" id="lcd-drs-txt">OFF</span>
+                    </div>
+                </div>
+
+                <!-- SVG Carbon Fiber Yoke Steering Wheel -->
+                <div class="steering-wheel-wrapper" id="steering-wheel">
+                    <svg class="wheel-svg" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Main Carbon Frame -->
+                        <path
+                            d="M 50,45 C 80,42 240,42 270,45 C 300,50 315,80 315,130 C 315,185 285,205 250,205 C 220,205 210,185 195,185 C 175,185 145,185 125,185 C 110,185 100,205 70,205 C 35,205 5,185 5,130 C 5,80 20,50 50,45 Z"
+                            fill="#1b1c22" stroke="#333742" stroke-width="4" />
+                        <!-- Ergonomic Grips -->
+                        <path
+                            d="M 8,90 C 8,65 25,55 45,55 C 55,55 58,75 50,95 C 42,115 42,145 52,165 C 58,180 50,195 38,195 C 18,195 8,165 8,125 Z"
+                            fill="#2d303b" stroke="#111" stroke-width="2" />
+                        <path
+                            d="M 312,90 C 312,65 295,55 275,55 C 265,55 262,75 270,95 C 278,115 278,145 268,165 C 262,180 270,195 282,195 C 302,195 312,165 312,125 Z"
+                            fill="#2d303b" stroke="#111" stroke-width="2" />
+                        <!-- Center Bezel Ring -->
+                        <circle cx="160" cy="145" r="28" fill="#15161c" stroke="#e10600" stroke-width="3" />
+                        <text x="160" y="151" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="900"
+                            font-family="sans-serif">F1</text>
+                        <!-- Rotary Dials & Buttons -->
+                        <circle cx="85" cy="85" r="9" fill="#00d2be" />
+                        <circle cx="85" cy="115" r="9" fill="#ffe600" />
+                        <circle cx="85" cy="145" r="9" fill="#e10600" />
+                        <circle cx="235" cy="85" r="9" fill="#00f0ff" />
+                        <circle cx="235" cy="115" r="9" fill="#b138dd" />
+                        <circle cx="235" cy="145" r="9" fill="#00ff66" />
+                    </svg>
+                </div>
+                <div class="wheel-hint">方向盤可滑鼠拖曳 / 鍵盤 A/D / 左右箭頭</div>
+            </div>
+
+            <!-- Right: Interactive Dual Pedals (煞車 & 油門踏板) -->
+            <div class="pedals-container">
+                <!-- Brake Pedal (Left / Red) -->
+                <div class="pedal-box">
+                    <div class="pedal-wrapper brake-pedal" id="pedal-brake" title="煞車踏板 (按住或按 S / 下箭頭)">
+                        <div class="pedal-plate">
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                        </div>
+                    </div>
+                    <div class="pedal-label">BRAKE</div>
+                    <div class="pedal-meter-outer brake-meter">
+                        <div class="pedal-meter-fill" id="brake-meter-fill"></div>
+                    </div>
+                    <div class="pedal-key-hint">[ S / ↓ ]</div>
+                </div>
+
+                <!-- Throttle Pedal (Right / Green) -->
+                <div class="pedal-box">
+                    <div class="pedal-wrapper gas-pedal" id="pedal-gas" title="油門踏板 (按住或按 W / 上箭頭)">
+                        <div class="pedal-plate">
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                            <div class="pedal-grip-hole"></div>
+                        </div>
+                    </div>
+                    <div class="pedal-label">THROTTLE</div>
+                    <div class="pedal-meter-outer gas-meter">
+                        <div class="pedal-meter-fill" id="gas-meter-fill"></div>
+                    </div>
+                    <div class="pedal-key-hint">[ W / ↑ ]</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions / Welcome Modal -->
+    <div class="modal-overlay" id="welcome-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-f1-badge">FORMULA 1</div>
+                <h2 class="modal-title">F1 賽車模擬器 (新手超友善版)</h2>
+            </div>
+            <div class="modal-body">
+                <p>這是一款兼具<strong>F1 極限速度感</strong>與<strong>新手防挫折設計</strong>的賽車遊戲。配備方向盤轉向反饋與擬真油門/煞車踏板，讓每個人都能享受 330 km/h
+                    貼地飛行的快感，絕不輕易失控打滑！</p>
+
+                <div class="feature-pill-list">
+                    <div class="feature-pill">
+                        <strong>🛡️ 智慧循跡防滑 (TCS)</strong><br>出彎大腳踩油門也不會原地打轉！
+                    </div>
+                    <div class="feature-pill">
+                        <strong>🚦 動態行車引導線</strong><br>地面綠色給油、黃色收油、紅色煞車。
+                    </div>
+                    <div class="feature-pill">
+                        <strong>⚡ 時光倒流 5 秒 [R]</strong><br>彎道失誤？一鍵倒回，輕鬆重來！
+                    </div>
+                    <div class="feature-pill">
+                        <strong>🎯 彎道智慧減速輔助</strong><br>太快進彎自動修飾，不怕直衝撞牆！
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.35); padding: 12px; border-radius: 8px; font-size: 13px;">
+                    <strong>🎮 操控方式：</strong><br>
+                    • <strong>油門/煞車</strong>：鍵盤 <code>W</code> / <code>S</code>
+                    或上下箭頭，亦可<strong>直接用滑鼠點擊按住右下角踏板</strong>！<br>
+                    • <strong>方向盤</strong>：鍵盤 <code>A</code> / <code>D</code>
+                    或左右箭頭，亦可<strong>滑鼠直接按住拖曳方向盤</strong>轉動！<br>
+                    • <strong>暫停 / 重新開始</strong>：按 <code>ESC</code> 或 <code>P</code> 隨時暫停、重新起跑或結束比賽！<br>
+                    • <strong>起跑信號</strong>：進入賽道後，會有 <strong>F1 官方五盞紅燈倒數</strong>，紅燈依序亮起後<strong>全部熄滅瞬間衝刺</strong>！<br>
+                    • <strong>DRS 空力尾翼</strong>：直道進入 DRS 區按 <code>空白鍵 [Space]</code> 瞬間飆速！<br>
+                    • <strong>ERS 電能加速</strong>：按住 <code>Shift</code> 釋放千匹油電動力！<br>
+                    • <strong>視角切換</strong>：按 <code>C</code> 可切換「車頂 T-Cam」、「車艙座艙」與「第三人稱追焦」。
+                </div>
+
+                <button class="start-btn" id="btn-start-race">進入賽道，起跑預備！🏁</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pause Modal -->
+    <div class="modal-overlay" id="pause-modal" style="display: none;">
+        <div class="modal-card" style="max-width: 460px; text-align: center;">
+            <div class="modal-header" style="justify-content: center;">
+                <div class="modal-f1-badge">PAUSED</div>
+                <h2 class="modal-title">比賽暫停</h2>
+            </div>
+            <div class="modal-body">
+                <p style="color: #aaa; font-size: 14px; margin-bottom: 8px;">
+                    休息一下喝口水，隨時可以繼續衝刺或重新開跑！
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                    <button class="menu-action-btn primary" id="btn-resume-race">▶️ 繼續比賽 (Resume / ESC)</button>
+                    <button class="menu-action-btn secondary" id="btn-restart-race">🔄 重新開始本場比賽 (Restart)</button>
+                    <button class="menu-action-btn tertiary" id="btn-quit-race">🏁 結束並回到選單 (Exit)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="three.min.js"></script>
+    <script src="audio.js"></script>
+    <script src="track.js"></script>
+    <script src="car.js"></script>
+    <script src="ai.js"></script>
+    <script src="game.js"></script>
+</body>
+
+</html>
